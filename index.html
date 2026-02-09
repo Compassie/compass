@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cupid's Compass</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050b18; /* Dark Blue */
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Input Screen */
+        #input-screen {
+            text-align: center;
+            z-index: 10;
+        }
+
+        input {
+            padding: 12px;
+            margin: 10px;
+            border-radius: 8px;
+            border: none;
+            width: 80%;
+            max-width: 300px;
+        }
+
+        button {
+            padding: 10px 25px;
+            background: #d4af37; /* Gold color */
+            border: none;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* Compass Container */
+        #compass-container {
+            display: none;
+            position: relative;
+            width: 90vw;
+            max-width: 400px;
+            aspect-ratio: 1/1;
+        }
+
+        #cupid-img {
+            width: 100%;
+            height: 100%;
+            transition: transform 0.2s ease-out;
+        }
+
+        /* Reset Icon */
+        #reset-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="reset-btn" onclick="showInput()">⚙️</div>
+
+    <div id="input-screen">
+        <h2>Enter Destination</h2>
+        <input type="number" id="lat" placeholder="Latitude (e.g. 40.7128)" step="any"><br>
+        <input type="number" id="lng" placeholder="Longitude (e.g. -74.0060)" step="any"><br>
+        <button onclick="startCompass()">Confirm</button>
+    </div>
+
+    <div id="compass-container">
+        <img id="cupid-img" src="https://the_url_to_your_uploaded_image.png" alt="Cupid Compass">
+    </div>
+
+    <script>
+        let targetLat, targetLng;
+        const cupidImg = document.getElementById('cupid-img');
+
+        // Load saved coordinates on startup
+        window.onload = () => {
+            const savedLat = localStorage.getItem('cupidLat');
+            const savedLng = localStorage.getItem('cupidLng');
+            if (savedLat && savedLng) {
+                document.getElementById('lat').value = savedLat;
+                document.getElementById('lng').value = savedLng;
+            }
+        };
+
+        function startCompass() {
+            targetLat = parseFloat(document.getElementById('lat').value);
+            targetLng = parseFloat(document.getElementById('lng').value);
+
+            if (isNaN(targetLat) || isNaN(targetLng)) {
+                alert("Please enter valid coordinates.");
+                return;
+            }
+
+            // Save to localStorage
+            localStorage.setItem('cupidLat', targetLat);
+            localStorage.setItem('cupidLng', targetLng);
+
+            document.getElementById('input-screen').style.display = 'none';
+            document.getElementById('compass-container').style.display = 'block';
+            document.getElementById('reset-btn').style.display = 'flex';
+
+            requestPermissions();
+        }
+
+        function showInput() {
+            document.getElementById('input-screen').style.display = 'block';
+            document.getElementById('compass-container').style.display = 'none';
+            document.getElementById('reset-btn').style.display = 'none';
+        }
+
+        async function requestPermissions() {
+            // iOS requires permission for Device Orientation
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                const response = await DeviceOrientationEvent.requestPermission();
+                if (response === 'granted') {
+                    window.addEventListener('deviceorientation', handleOrientation, true);
+                }
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation, true);
+            }
+        }
+
+        function handleOrientation(event) {
+            let alpha = event.webkitCompassHeading || event.alpha; // Compass heading in degrees
+
+            if (alpha === undefined) return;
+
+            navigator.geolocation.getCurrentPosition((position) => {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+
+                // Calculate bearing to target
+                const bearing = calculateBearing(userLat, userLng, targetLat, targetLng);
+                
+                // Adjust the image rotation
+                // Compass heading (alpha) - bearing to target = rotation angle
+                const rotation = bearing - alpha;
+                cupidImg.style.transform = `rotate(${rotation}deg)`;
+            });
+        }
+
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const y = Math.sin(Δλ) * Math.cos(φ2);
+            const x = Math.cos(φ1) * Math.sin(φ2) -
+                      Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+            
+            let brng = Math.atan2(y, x);
+            return (brng * 180 / Math.PI + 360) % 360;
+        }
+    </script>
+</body>
+</html>
